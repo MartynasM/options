@@ -6,8 +6,8 @@ hook = Hook.new
 hook.check_syntax
 hook.check_erb
 hook.check_best_practices
-hook.warnning_on("WTF?")
-hook.warnning_on("console.log")
-hook.warnning_on("binding.pry")
+hook.warning_on("WTF?")
+hook.warning_on("console.log")
+hook.warning_on("binding.pry")
 
 exit hook.results
