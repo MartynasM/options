@@ -61,7 +61,7 @@ class Hook
     each_changed_file do |file|
       if file =~ @rb_regexp or file =~ @erb_regexp
         popen3("rails_best_practices #{file}") do |stdin, stdout, stderr|
-          @result.warnings.concat stdout.read.split("\n")
+          @result.warnings.concat stdout.read.split("\n").map{|line| line.gsub(@color_regexp, '').strip if line =~ /#{file}/ }.compact
         end
       end
     end
@@ -73,7 +73,7 @@ class Hook
       popen3("fgrep #{string} #{file}") do |stdin, stdout, stderr|
         err = stdout.read
         if err.split("\n").size > 0 
-          @result.warnings << "#{string} in #{file}:"
+          @result.warnings << "#{string} in #{file}"
         end
       end
     end
@@ -85,13 +85,14 @@ class Hook
       status = 1
       puts "ERRORS:\n"
       puts @result.errors.join("\n\n")
+      puts "\n"
     end
 
     if @result.warnings.size > 0 
       status = 1 if @stop_on_warnings
 
       puts "Warnings: \n"
-      puts @result.warnings.join("\n\n")
+      puts @result.warnings.join("\n")
     end
     return status
   end
