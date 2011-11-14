@@ -1,46 +1,89 @@
+class String
+
+  #def colorize(text, color_code) "#{color_code}#{text}\e[0m" end
+  def red;    "\e[1m\e[31m#{self}\e[0m"; end
+  def green;  "\e[1m\e[32m#{self}\e[0m"; end
+  def yellow; "\e[1m\e[33m#{self}\e[0m"; end
+
+  # def red;    colorize(self, ""); end
+  # def green;  colorize(self, "\e[1m\e[32m"); end
+  # def yellow; colorize(self, "\e[1m\e[33m"); end
+end
+
 class Hook
   require File.expand_path(File.join(File.dirname(__FILE__),  "git_result"))
   require 'open3'
   include Open3
 
+  FILES_TO_WATCH = /(.+\.(e?rb|task|rake|thor|prawn)|[Rr]akefile|[Tt]horfile)/
 
+  RB_REGEXP     = /\.(rb|rake|task|prawn)\z/
+  ERB_REGEXP   = /\.erb\z/
+  JS_REGEXP   = /\.js\z/
+  
+  RB_WARNING_REGEXP  = /[0-9]+:\s+warning:/
+  ERB_INVALID_REGEXP = /invalid\z/
+  COLOR_REGEXP = /\e\[(\d+)m/
+
+  def self.results(&block)
+    Hook.new(&block)
+  end
 
   # Set this to true if you want warnings to stop your commit
-  def initialize(stop_on_warnings = false)
-    @files_to_watch = /(.+\.(e?rb|task|rake|thor|prawn)|[Rr]akefile|[Tt]horfile)/
-
-    @color_regexp = /\e\[(\d+)m/
-    @rb_regexp     = /\.(rb|rake|task|prawn)\z/
-    @erb_regexp   = /\.erb\z/
-    @js_regexp   = /\.js\z/
-  
-    @rb_warning_regexp  = /[0-9]+:\s+warning:/
-    @erb_invalid_regexp = /invalid\z/
-    @stop_on_warnings = stop_on_warnings
-
-  # In case of Rubinius use without RVM
-  # @compiler_ruby = `which rbx`.strip
-  # @compiler_ruby = `which ruby`.strip if compiler_ruby.length == 0 
+  def initialize(&block)
+    @stop_on_warnings = false
     @compiler_ruby = `which ruby`.strip
 
     @result = GitResult.new(stop_on_warnings)
-    @changed_ruby_files = `git diff-index --name-only --cached HEAD`.split("\n").select{ |file| file =~ @files_to_watch }.map(&:chomp)
+    @changed_ruby_files = `git diff-index --name-only --cached HEAD`.split("\n").select{ |file| file =~ FILES_TO_WATCH }.map(&:chomp)
+
+    instance_eval(&block) if block
+  
+    status = 0
+    if @result.errors.size > 0 
+      status = 1
+      puts "ERRORS:".red
+      puts @result.errors.join("\n")
+      puts "--------\n".red
+    end
+
+    if @result.warnings.size > 0 
+      status = 1 if @stop_on_warnings
+
+      puts "Warnings:".yellow
+      puts @result.warnings.join("\n")
+      puts "--------\n".yellow
+    end
+
+    puts "COMMIT FAILED".red unless status == 0 
+    exit status
   end
 
-  def each_changed_file
+  def stop_on_warnings 
+    @stop_on_warnings = true
+  end 
+  
+  def do_not_stop_on_warnings 
+    @stop_on_warnings = false
+  end
+
+  def each_changed_file(filetypes = [:all])
     if @result.continue?
       @changed_ruby_files.each do |file|
+        unless filetypes.include?(:all)
+          next unless (filetypes.include?(:rb) and file =~ RB_REGEXP) or (filetypes.include?(:erb) and file =~ ERB_REGEXP) or (filetypes.include?(:js) and file =~ JS_REGEXP)
+        end
         yield file if File.readable?(file)
       end
     end
   end
 
   def check_syntax
-    each_changed_file do |file|
-      if file =~ @rb_regexp
+    each_changed_file([:rb]) do |file|
+      if file =~ RB_REGEXP
         popen3("#{@compiler_ruby} -wc #{file}") do |stdin, stdout, stderr|
           stderr.read.split("\n").each do |line|
-            line =~ @rb_warning_regexp ? @result.warnings << line : @result.errors << line 
+            line =~ RB_WARNING_REGEXP ? @result.warnings << line : @result.errors << line 
           end
         end
         end
@@ -48,52 +91,37 @@ class Hook
   end
 
   def check_erb
-    each_changed_file do |file|
-      if file =~ @erb_regexp
-        popen3("rails-erb-check #{file}") do |stdin, stdout, stderr|
-          @result.errors.concat stdout.read.split("\n").map{|line| "#{file} => invalid ERB syntax" if line.gsub(@color_regexp, '') =~ @erb_invalid_regexp}.compact
-        end
+    each_changed_file([:erb]) do |file|
+      popen3("rails-erb-check #{file}") do |stdin, stdout, stderr|
+        @result.errors.concat stdout.read.split("\n").map{|line| "#{file} => invalid ERB syntax" if line.gsub(COLOR_REGEXP, '') =~ ERB_INVALID_REGEXP}.compact
       end
     end
   end
 
   def check_best_practices
-    each_changed_file do |file|
-      if file =~ @rb_regexp or file =~ @erb_regexp
+    each_changed_file([:rb, :erb]) do |file|
+      if file =~ RB_REGEXP or file =~ ERB_REGEXP
         popen3("rails_best_practices #{file}") do |stdin, stdout, stderr|
-          @result.warnings.concat stdout.read.split("\n").map{|line| line.gsub(@color_regexp, '').strip if line =~ /#{file}/ }.compact
+          @result.warnings.concat stdout.read.split("\n").map{|line| line.gsub(COLOR_REGEXP, '').strip if line =~ /#{file}/ }.compact
         end
       end
     end
   end
 
   # Maybe need options for different file types :rb :erb :js
-  def warning_on(string)
-    each_changed_file do |file|
-      popen3("fgrep #{string} #{file}") do |stdin, stdout, stderr|
+  def warning_on(*args)
+    options = (args[-1].kind_of?(Hash) ? args.pop : {})
+    each_changed_file(options[:in] || [:all]) do |file|
+      popen3("fgrep \"#{args.join("\n")}\" #{file}") do |stdin, stdout, stderr|
         err = stdout.read
-        if err.split("\n").size > 0 
-          @result.warnings << "#{string} in #{file}"
+        if err.split("\n").size > 0
+          args.each do |string|
+            @result.warnings << "#{string} in #{file}" if err =~ /#{string}/
+          end
         end
       end
     end
   end
-
-  def results
-    status = 0
-    if @result.errors.size > 0 
-      status = 1
-      puts "ERRORS:\n"
-      puts @result.errors.join("\n\n")
-      puts "\n"
-    end
-
-    if @result.warnings.size > 0 
-      status = 1 if @stop_on_warnings
-
-      puts "Warnings: \n"
-      puts @result.warnings.join("\n")
-    end
-    return status
-  end
 end
+
+
