@@ -1,0 +1,4 @@
+.redcar/*
+lib/query_trace.rb
+config/initializers/query_trace.rb
+config/rails_best_practices.yml

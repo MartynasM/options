@@ -1,0 +1,28 @@
+alias gh='history | grep'
+alias rake='bundle exec rake'
+alias gg="git grep -n"
+
+
+parse_git_branch() {
+    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/[\1]/'
+}
+branch_status () {
+   if git rev-parse --git-dir >/dev/null 2>&1
+   then
+     status=""
+
+     if git diff --quiet 2>/dev/null >&2
+     then
+       status=""
+     else
+       status="⚡"
+     fi
+   else
+     return 0
+   fi
+
+   echo -ne $status
+}
+
+PS1="\w\[\e[0;32m\]\$(parse_git_branch)\$(branch_status)\[\e[0m\]$ "
+

@@ -1,0 +1,9 @@
+[core]
+        editor = vim
+        excludesfile = ~/.gitignore_global
+[alias]
+        lol = log --oneline --decorate --graph
+        cb = checkout -b
+        plom = pull origin master
+
+

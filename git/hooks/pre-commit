@@ -1,0 +1,101 @@
+#!/usr/bin/env ruby
+# Most of this code is not written by me. I lost track where i copied it from. Ups.
+# A hook script to verify that only syntactically valid ruby code is commited.
+# Called by git-commit with no arguments.  The hook should
+# exit with non-zero status after issuing an appropriate message if
+# it wants to stop the commit.
+#
+# Put this code into a file called "pre-commit" inside your .git/hooks
+# directory, and make sure it is executable ("chmod +x .git/hooks/pre-commit")
+
+# Added additional checks for best practices and some debug statements
+
+require 'open3'
+include Open3
+
+# Set this to true if you want warnings to stop your commit
+stop_on_warnings = false
+
+compiler_ruby = `which rbx`.strip
+compiler_ruby = `which ruby`.strip if compiler_ruby.length == 0
+
+files_to_watch = /(.+\.(e?rb|task|rake|thor|prawn)|[Rr]akefile|[Tt]horfile)/
+
+color_regexp = /\e\[(\d+)m/
+rb_regexp     = /\.(rb|rake|task|prawn)\z/
+erb_regexp   = /\.erb\z/
+js_regexp   = /\.js\z/
+
+rb_warning_regexp  = /[0-9]+:\s+warning:/
+erb_invalid_regexp = /invalid\z/
+
+changed_ruby_files = `git diff-index --name-only --cached HEAD`.split("\n").select{ |file| file =~ files_to_watch }.map(&:chomp)
+
+problematic_files = changed_ruby_files.inject([]) do |problematic_files, file|
+  if File.readable? file
+    errors = []
+    # RB, Rake, Task, Prawn files
+    if file =~ rb_regexp
+      popen3("#{compiler_ruby} -wc #{file}") do |stdin, stdout, stderr|
+        errors.concat stderr.read.split("\n")
+      end
+      
+      errors.reject!{ |line| line =~ rb_warning_regexp } unless stop_on_warnings
+    end
+    
+    # ERB files 
+    if file =~ erb_regexp
+      popen3("rails-erb-check #{file}") do |stdin, stdout, stderr|
+        errors.concat stdout.read.split("\n").map{|line| " => invalid syntax" if line.gsub(color_regexp, '') =~ erb_invalid_regexp}.compact
+      end
+    end
+    
+    unless errors.empty?
+      errors.map!{ |line| line.sub(/#{file}:/, '') }
+      problematic_files << "#{file}:\n#{errors.join("\n")}"
+    end
+  end
+
+  problematic_files
+end
+
+# CODE ANALYSIS:
+changed_ruby_files.each do |file|
+  if file =~ rb_regexp or file =~ erb_regexp
+    popen3("rails_best_practices  #{file}") do |stdin, stdout, stderr|
+      puts stdout.read
+    end
+  end
+
+  if file =~ rb_regexp or file =~ erb_regexp
+    popen3("fgrep WTF? #{file}") do |stdin, stdout, stderr|
+      err = stdout.read
+      if err.split("\n").size > 0 
+        puts "WTF? in #{file}:"
+        puts err
+      end
+    end
+  end
+
+  if file =~ js_regexp or file =~ erb_regexp
+    popen3("fgrep console.log #{file}") do |stdin, stdout, stderr|
+      err = stdout.read
+      if err.split("\n").size > 0 
+        puts "console.log in #{file}:"
+        puts err
+      end
+    end
+  end
+
+end
+# CHECK FOR WTF? AND console.log()
+
+
+
+if problematic_files.size > 0
+  $stderr.puts problematic_files.join("\n\n")
+  exit 1
+else
+  # All is well
+  exit 0
+end
