@@ -1,6 +1,7 @@
 alias gh='history | grep'
 alias rake='bundle exec rake'
 alias gg="git grep -n"
+alias c='~/workspace/calc/calc'
 
 
 parse_git_branch() {
