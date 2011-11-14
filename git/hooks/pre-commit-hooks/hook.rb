@@ -70,7 +70,7 @@ class Hook
   # Maybe need options for different file types :rb :erb :js
   def warnning_on(string)
     each_changed_file do |file|
-      popen3("fgrep console.log #{file}") do |stdin, stdout, stderr|
+      popen3("fgrep #{string} #{file}") do |stdin, stdout, stderr|
         err = stdout.read
         if err.split("\n").size > 0 
           @world.warnings << "#{string} in #{file}:"

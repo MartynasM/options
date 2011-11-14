@@ -10,4 +10,4 @@ hook.warnning_on("WTF?")
 hook.warnning_on("console.log")
 hook.warnning_on("binding.pry")
 
-exit hook.results 
+exit hook.results
