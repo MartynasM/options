@@ -62,7 +62,7 @@ class Hook
       puts "Perfect commit!".green
     end
 
-    status == 0 ? puts "COMMIT OK:".green : puts "COMMIT FAILED".red 
+    status == 0 ? puts("COMMIT OK:".green) : puts("COMMIT FAILED".red)
     exit status
   end
 
