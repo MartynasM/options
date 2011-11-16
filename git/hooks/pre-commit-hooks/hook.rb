@@ -40,14 +40,14 @@ class Hook
     instance_eval(&block) if block
   
     status = 0
-    if @result.errors.size > 0 
+    if @result.errors?
       status = 1
       puts "ERRORS:".red
       puts @result.errors.join("\n")
       puts "--------\n".red
     end
 
-    if @result.warnings.size > 0 
+    if @result.warnings?
       status = 1 if @stop_on_warnings
 
       puts "Warnings:".yellow
@@ -55,7 +55,11 @@ class Hook
       puts "--------\n".yellow
     end
 
-    puts "COMMIT FAILED".red unless status == 0 
+    if @result.perfect_commit?
+      puts "Perfect commit!".green
+    end
+
+    status == 0 ? puts "COMMIT OK:".green : puts "COMMIT FAILED".red 
     exit status
   end
 

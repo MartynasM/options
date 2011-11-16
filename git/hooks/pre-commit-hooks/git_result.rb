@@ -10,4 +10,16 @@ class GitResult
   def continue?
     !(@errors.size > 0 or (@warnings.size > 0 and @stop_on_warnings))
   end
+
+  def warnings?
+  	@warnings.size > 0 
+  end
+
+  def errors?
+  	@errors.size > 0 
+  end
+
+  def perfect_commit?
+  	!(errors? || warnings?)
+  end
 end
