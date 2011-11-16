@@ -48,9 +48,12 @@ class Hook
     end
 
     if @result.warnings?
-      status = 1 if @stop_on_warnings
-
-      puts "Warnings:".yellow
+      if @stop_on_warnings
+        status = 1 
+        puts "WARNINGS:".yellow
+      else
+        puts "Warnings:".yellow
+      end
       puts @result.warnings.join("\n")
       puts "--------\n".yellow
     end

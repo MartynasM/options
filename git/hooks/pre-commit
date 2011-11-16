@@ -9,5 +9,5 @@ Hook.results do
   check_erb
   check_best_practices
   warning_on "WTF?", "binding.pry"
-  warning_on "console.log", {:in => [:all]}
+  warning_on "console.log", "debugger" {:in => [:js]}
 end
