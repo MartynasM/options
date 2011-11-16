@@ -85,7 +85,7 @@ class Hook
     end
   end
 
-  def check_syntax
+  def check_ruby_syntax
     each_changed_file([:rb]) do |file|
       if file =~ RB_REGEXP
         popen3("#{@compiler_ruby} -wc #{file}") do |stdin, stdout, stderr|

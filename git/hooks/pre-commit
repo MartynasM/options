@@ -5,7 +5,7 @@ require File.expand_path(File.join(File.dirname(__FILE__), "pre-commit-hooks", "
 Hook.results do
   do_not_stop_on_warnings 
 
-  check_syntax
+  check_ruby_syntax
   check_erb
   check_best_practices
   warning_on "WTF?", "binding.pry"
