@@ -20,7 +20,7 @@ class Hook
   RB_REGEXP     = /\.(rb|rake|task|prawn)\z/
   ERB_REGEXP   = /\.erb\z/
   JS_REGEXP   = /\.js\z/
-  
+
   RB_WARNING_REGEXP  = /[0-9]+:\s+warning:/
   ERB_INVALID_REGEXP = /invalid\z/
   COLOR_REGEXP = /\e\[(\d+)m/
@@ -31,15 +31,13 @@ class Hook
 
   # Set this to true if you want warnings to stop your commit
   def initialize(&block)
-    @stop_on_warnings = false
     @compiler_ruby = `which ruby`.strip
 
-    @result = GitResult.new(stop_on_warnings)
+    @result = GitResult.new(false)
     @changed_ruby_files = `git diff-index --name-only --cached HEAD`.split("\n").select{ |file| file =~ FILES_TO_WATCH }.map(&:chomp)
 
     instance_eval(&block) if block
-  
-    status = 0
+
     if @result.errors?
       status = 1
       puts "ERRORS:".red
@@ -48,8 +46,7 @@ class Hook
     end
 
     if @result.warnings?
-      if @stop_on_warnings
-        status = 1 
+      if @result.stop_on_warnings
         puts "WARNINGS:".yellow
       else
         puts "Warnings:".yellow
@@ -62,16 +59,22 @@ class Hook
       puts "Perfect commit!".green
     end
 
-    status == 0 ? puts("COMMIT OK:".green) : puts("COMMIT FAILED".red)
-    exit status
+    if @result.continue?
+      # all good
+      puts("COMMIT OK:".green)
+      exit 0
+    else
+      puts("COMMIT FAILED".red)
+      exit 1
+    end
   end
 
-  def stop_on_warnings 
-    @stop_on_warnings = true
-  end 
-  
-  def do_not_stop_on_warnings 
-    @stop_on_warnings = false
+  def stop_on_warnings
+    @result.stop_on_warnings = true
+  end
+
+  def do_not_stop_on_warnings
+    @result.stop_on_warnings = false
   end
 
   def each_changed_file(filetypes = [:all])
@@ -90,7 +93,7 @@ class Hook
       if file =~ RB_REGEXP
         popen3("#{@compiler_ruby} -wc #{file}") do |stdin, stdout, stderr|
           stderr.read.split("\n").each do |line|
-            line =~ RB_WARNING_REGEXP ? @result.warnings << line : @result.errors << line 
+            line =~ RB_WARNING_REGEXP ? @result.warnings << line : @result.errors << line
           end
         end
         end
@@ -119,16 +122,15 @@ class Hook
   def warning_on(*args)
     options = (args[-1].kind_of?(Hash) ? args.pop : {})
     each_changed_file(options[:in] || [:all]) do |file|
-      popen3("fgrep \"#{args.join("\n")}\" #{file}") do |stdin, stdout, stderr|
+      popen3("fgrep -nH \"#{args.join("\n")}\" #{file}") do |stdin, stdout, stderr|
         err = stdout.read
-        if err.split("\n").size > 0
+        err.split("\n").each do |msg|
           args.each do |string|
-            @result.warnings << "#{string} in #{file}" if err =~ /#{string}/
+            @result.warnings << "#{msg.split(" ").first} contains #{string}" if msg =~ /#{string}/
           end
         end
       end
     end
   end
+
 end
-
-

@@ -1,6 +1,6 @@
 class GitResult
-  attr_accessor :errors, :warnings
-  
+  attr_accessor :errors, :warnings, :stop_on_warnings
+
   def initialize(stop_on_warnings)
     @errors = []
     @warnings = []
@@ -12,11 +12,11 @@ class GitResult
   end
 
   def warnings?
-  	@warnings.size > 0 
+  	@warnings.size > 0
   end
 
   def errors?
-  	@errors.size > 0 
+  	@errors.size > 0
   end
 
   def perfect_commit?
