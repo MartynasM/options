@@ -20,6 +20,6 @@ class GitResult
   end
 
   def perfect_commit?
-  	!(errors? || warnings?)
+    !(errors? || warnings?)
   end
 end

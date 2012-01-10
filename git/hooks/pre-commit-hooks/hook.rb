@@ -133,4 +133,16 @@ class Hook
     end
   end
 
+  def info(text)
+    puts(text.green)
+  end
+
+  def notice(text)
+    puts(text.yellow)
+  end
+
+  def warn(text)
+   puts(text.red)
+  end
+
 end
