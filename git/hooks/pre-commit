@@ -10,7 +10,7 @@ Hook.results do
   check_haml
   check_best_practices
   warning_on "WTF?", "binding.pry", "<<<<<<<"
-  warning_on "console.log", "debugger", {:in => [:js]}
+  warning_on "console.log", "debugger", {:in => [:js, :coffee]}
 
   info "Run rspec tests and have a nice day."
 end

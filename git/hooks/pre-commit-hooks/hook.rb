@@ -15,12 +15,13 @@ class Hook
   require 'open3'
   include Open3
 
-  FILES_TO_WATCH = /(.+\.(e?rb|task|rake|thor|prawn|haml)|[Rr]akefile|[Tt]horfile)/
+  FILES_TO_WATCH = /(.+\.(e?rb|task|rake|thor|prawn|haml|coffee)|[Rr]akefile|[Tt]horfile)/
 
   RB_REGEXP     = /\.(rb|rake|task|prawn)\z/
   ERB_REGEXP   = /\.erb\z/
   JS_REGEXP   = /\.js\z/
   HAML_REGEXP   = /\.haml\z/
+  COFFEE_REGEXP   = /\.coffee\z/
 
   RB_WARNING_REGEXP  = /[0-9]+:\s+warning:/
   ERB_INVALID_REGEXP = /invalid\z/
@@ -83,7 +84,7 @@ class Hook
     if @result.continue?
       @changed_ruby_files.each do |file|
         unless filetypes.include?(:all)
-          next unless (filetypes.include?(:rb) and file =~ RB_REGEXP) or (filetypes.include?(:erb) and file =~ ERB_REGEXP) or (filetypes.include?(:js) and file =~ JS_REGEXP) or (filetypes.include?(:haml) and file =~ HAML_REGEXP)
+          next unless (filetypes.include?(:rb) and file =~ RB_REGEXP) or (filetypes.include?(:erb) and file =~ ERB_REGEXP) or (filetypes.include?(:js) and file =~ JS_REGEXP) or (filetypes.include?(:haml) and file =~ HAML_REGEXP) or (filetypes.include?(:coffee) and file =~ COFFEE_REGEXP)
         end
         yield file if File.readable?(file)
       end
