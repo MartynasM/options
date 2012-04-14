@@ -15,14 +15,16 @@ class Hook
   require 'open3'
   include Open3
 
-  FILES_TO_WATCH = /(.+\.(e?rb|task|rake|thor|prawn)|[Rr]akefile|[Tt]horfile)/
+  FILES_TO_WATCH = /(.+\.(e?rb|task|rake|thor|prawn|haml)|[Rr]akefile|[Tt]horfile)/
 
   RB_REGEXP     = /\.(rb|rake|task|prawn)\z/
   ERB_REGEXP   = /\.erb\z/
   JS_REGEXP   = /\.js\z/
+  HAML_REGEXP   = /\.haml\z/
 
   RB_WARNING_REGEXP  = /[0-9]+:\s+warning:/
   ERB_INVALID_REGEXP = /invalid\z/
+  HAML_INVALID_REGEXP = /error/
   COLOR_REGEXP = /\e\[(\d+)m/
 
   def self.results(&block)
@@ -81,7 +83,7 @@ class Hook
     if @result.continue?
       @changed_ruby_files.each do |file|
         unless filetypes.include?(:all)
-          next unless (filetypes.include?(:rb) and file =~ RB_REGEXP) or (filetypes.include?(:erb) and file =~ ERB_REGEXP) or (filetypes.include?(:js) and file =~ JS_REGEXP)
+          next unless (filetypes.include?(:rb) and file =~ RB_REGEXP) or (filetypes.include?(:erb) and file =~ ERB_REGEXP) or (filetypes.include?(:js) and file =~ JS_REGEXP) or (filetypes.include?(:haml) and file =~ HAML_REGEXP)
         end
         yield file if File.readable?(file)
       end
@@ -100,6 +102,14 @@ class Hook
     end
   end
 
+  def check_haml
+    each_changed_file([:haml]) do |file|
+      popen3("haml --check #{file}") do |stdin, stdout, stderr|
+        @result.errors.concat stderr.read.split("\n").map{|line| "#{file} => invalid HAML syntax\n#{line}" if line.gsub(COLOR_REGEXP, '') =~ HAML_INVALID_REGEXP}.compact
+      end
+    end
+  end
+
   def check_erb
     each_changed_file([:erb]) do |file|
       popen3("rails-erb-check #{file}") do |stdin, stdout, stderr|
@@ -109,8 +119,8 @@ class Hook
   end
 
   def check_best_practices
-    each_changed_file([:rb, :erb]) do |file|
-      if file =~ RB_REGEXP or file =~ ERB_REGEXP
+    each_changed_file([:rb, :erb, :haml]) do |file|
+      if file =~ RB_REGEXP or file =~ ERB_REGEXP or file =~ HAML_REGEXP
         popen3("rails_best_practices #{file}") do |stdin, stdout, stderr|
           @result.warnings.concat stdout.read.split("\n").map{|line| line.gsub(COLOR_REGEXP, '').strip if line =~ /#{file}/ }.compact
         end

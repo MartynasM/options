@@ -7,6 +7,7 @@ Hook.results do
 
   check_ruby_syntax
   check_erb
+  check_haml
   check_best_practices
   warning_on "WTF?", "binding.pry", "<<<<<<<"
   warning_on "console.log", "debugger", {:in => [:js]}
